@@ -6,22 +6,22 @@ def spp_layer(input_, levels=[6]):
     shape = input_.shape[-3:]
     pyramid = []
     for n in levels:
-        if (n > shape[1]) or (n > shape[2]):
-            raise ("Levels are not correct!")
-        else:
-            stride_1 = np.floor(float(shape[1] / n)).astype(np.int32)
-            stride_2 = np.floor(float(shape[2] / n)).astype(np.int32)
-            ksize_1 = stride_1 + (shape[1] % n)
-            ksize_2 = stride_2 + (shape[2] % n)
-            pool_layer = torch.nn.MaxPool2d(
-                kernel_size=(ksize_1, ksize_2), stride=(stride_1, stride_2)
-            )
-            pool = pool_layer(input_)
-            pool = pool.view(-1, shape[0] * n * n)
+        if n > min(shape[1], shape[2]):
+            continue  # Skip incompatible levels
+        stride_1 = max(1, np.floor(float(shape[1] / n)).astype(np.int32))
+        stride_2 = max(1, np.floor(float(shape[2] / n)).astype(np.int32))
+        ksize_1 = stride_1 + (shape[1] % n)
+        ksize_2 = stride_2 + (shape[2] % n)
+        pool_layer = torch.nn.MaxPool2d(
+            kernel_size=(ksize_1, ksize_2), stride=(stride_1, stride_2)
+        )
+        pool = pool_layer(input_)
+        pool = pool.view(-1, shape[0] * n * n)
         pyramid.append(pool)
+    if not pyramid:
+        raise Exception("No valid levels found for input dimensions.")
     spp_pool = torch.cat(pyramid, 1)
     return spp_pool
-
 
 if __name__ == "__main__":
     levels = [15, 4, 2]

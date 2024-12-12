@@ -5,7 +5,7 @@ import requests
 from shapely.geometry import Polygon
 
 
-def import_boundary(boundaryPath, buffer=0.05):
+def import_boundary(boundaryPath, buffer=0.05, filename=None):
     boundary = gpd.read_file(boundaryPath)
     boundary = boundary.geometry
     if boundary.crs != "EPSG:4326":
@@ -16,14 +16,15 @@ def import_boundary(boundaryPath, buffer=0.05):
     buff = boundary.buffer(buffer)
     buff = gpd.GeoSeries(Polygon(buff[0].exterior), crs="EPSG:4326")
     buff = gpd.GeoDataFrame(geometry=buff)
-    filename = os.path.splitext(boundaryPath)[0] + "_buffer" + str(buffer) + ".shp"
+    if filename == None:
+        filename = os.path.splitext(boundaryPath)[0] + "_buffer" + str(buffer) + ".shp"
     buff.to_file(filename)
     return buff
 
 
 def get_tiles(shp, gridPath):
     grid = gpd.read_file(gridPath)
-    tiles = gpd.sjoin(grid, shp, op="intersects")
+    tiles = gpd.sjoin(grid, shp) # op="intersects"
     return tiles
 
 
@@ -63,15 +64,15 @@ def create_end(tiles):
     ends = ["A"] * len(corners)
     for i in range(len(corners)):
         if corners[i, 0] < 0:
-            NS = str(np.int(np.abs(corners[i, 0]))) + "S"
+            NS = str(int(np.abs(corners[i, 0]))) + "S"
         else:
-            NS = str(np.int(np.abs(corners[i, 0]))) + "N"
+            NS = str(int(np.abs(corners[i, 0]))) + "N"
         if len(NS) == 2:
             NS = "0" + NS
         if corners[i, 1] < 0:
-            EW = str(np.int(np.abs(corners[i, 1]))) + "W"
+            EW = str(int(np.abs(corners[i, 1]))) + "W"
         else:
-            EW = str(np.int(np.abs(corners[i, 1]))) + "E"
+            EW = str(int(np.abs(corners[i, 1]))) + "E"
         while len(EW) < 4:
             EW = "0" + EW
         ends[i] = "_" + NS + "_" + EW + ".tif"
@@ -180,6 +181,7 @@ def download_data(shp, dwnldPath, years, types_static, types_dynamic, gridPath):
     if not os.path.exists(dwnldPath):
         os.makedirs(dwnldPath)
     years.sort()
+    years = [2000 + i for i in years]
     tiles = get_tiles(shp, gridPath)
     for year in years:
         if year == years[-1]:

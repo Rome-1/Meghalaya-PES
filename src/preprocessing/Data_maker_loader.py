@@ -4,11 +4,10 @@ from PIL import Image
 from torch.utils.data import Dataset
 import os.path
 import numpy as np
-
-# import h5py
+import rasterio
+import random
 
 Image.MAX_IMAGE_PIXELS = None
-
 
 def to_Tensor(path, name):
     """
@@ -19,6 +18,16 @@ def to_Tensor(path, name):
     t = t.squeeze(dim=0)
     return t
 
+def multiband_To_Tensor(path, name):
+    """
+    Load multi-band TIFF files as tensors.
+    """
+    with rasterio.open(f"{path}/{name}.tif") as src:
+        data = src.read()  # reads all bands if available
+
+    t = torch.from_numpy(data)
+
+    return t # (shape will be [bands, height, width])
 
 def last_to_image(path, year):
     """
@@ -249,7 +258,6 @@ class DatasetCNN(Dataset):
         if len(image) == 1:
             image = torch.cat(image, dim=0)
             self.image = torch.cat((static, image), dim=0)
-            print("len(image) == 1")
         else:
             # add static to each image in the list so that all images are ready tensors
             # do this only when initializig the data class so that it is quick to call ready tensor at each get item call
@@ -257,12 +265,27 @@ class DatasetCNN(Dataset):
 
             # save the lengths of each item in the pixles coordinates/labels list
             # so that after they are flattened, a map pixel,year -> image,year is possible
+            
             self.lengths = [len(i) for i in pixels]
             self.image = []
             print("len(image) == %d" % len(image))
-            for im in image:
-                img = torch.cat((static, im), dim=0)
+            for idx, im in enumerate(image):
+                # print(f"\nProcessing image {idx + 1}/{len(image)}")
+                # print(f"static shape: {static.shape}, dtype: {static.dtype}")
+                # print(f"im shape: {im.shape}, dtype: {im.dtype}")
+                try:
+                    img = torch.cat((static, im), dim=0)
+                    # print(f"Concatenated img shape: {img.shape}")
+                except Exception as e:
+                    print(f"Error during concatenation: {e}")
+                    raise
                 self.image.append(img)
+            # self.lengths = [len(i) for i in pixels]
+            # self.image = []
+            # print("len(image) == %d" % len(image))
+            # for im in image:
+            #     img = torch.cat((static, im), dim=0)
+            #     self.image.append(img)
 
         self.pixels = torch.cat(pixels, dim=0)
         self.labels = torch.cat(labels, dim=0)
@@ -382,9 +405,12 @@ def load_CNNdata(
     end_year,
     add_static=None,
     add_time=None,
+    years_ahead=1,
     path="'/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors'",
 ):
     """
+    years_ahead: labels should encode deforestation in the following years_ahead years 
+        (ie 3 is any deforestation event in the next three years) TODO: documentation
     given start year, end year and size initialize CNN data class
     start year and end year define how many pairs imange - next year label the data to have
     size defines the returned image size
@@ -404,76 +430,120 @@ def load_CNNdata(
             else:
                 static = torch.cat([static, to_add], dim=0)
 
+    # To support multiple years of classification
     images_ls = []
     pixels_ls = []
     labels_ls = []
 
     for i, year in enumerate(range(start_year, end_year + 1)):
         print("i: %d, year: %d" % (i, year))
+        
         image = torch.load(path + "tensor_%d.pt" % (year))
+
         if add_time:
-            for to_add in add_time[i]:
+            for time_data in add_time:
+                to_add = time_data[i]
                 if len(to_add.shape) == 2:
                     to_add = to_add.unsqueeze(dim=0)
-                    image = torch.cat([image, to_add], dim=0)
-                else:
-                    image = torch.cat([image, to_add], dim=0)
+                image = torch.cat([image, to_add], dim=0)
 
         images_ls.append(image)
 
         pixels = torch.load(path + "pixels_cord_%d.pt" % (year))
         pixels_ls.append(pixels)
 
-        labels = torch.load(path + "labels_%d.pt" % (year))
+        if years_ahead == 1:
+            labels = torch.load(path + "labels_%d.pt" % (year))
+        else: 
+            labels = torch.load(path + f"labels{years_ahead}_%d.pt" % (year))
+
         labels_ls.append(labels)
 
     Data = DatasetCNN(
         size, static=static, image=images_ls, pixels=pixels_ls, labels=labels_ls
     )
 
+    print("data loaded")
     return Data
 
-
 # Regulate later if new layers are added in add_static or add_time
-def with_DSM(size, start_year, end_year, wherepath, DSM=False, type="3D"):
+def with_DSM(size, start_year, end_year, wherepath, data_layers={}, years_ahead=1, type="3D", DSM=False):
+    """
+    TODO documentation
+    TODO clean up filepaths
+    TODO drop nightlight_log (specify in data_layers)
+    DSM included for backward compatibility
+    # First they have to be (cropped for the region and) made into tensors
+    """
+
+    data_layers_path = os.path.abspath(os.path.join(wherepath, '..'))
+    data_layers_path = data_layers_path + "/external"
+
+    static_layers = []
+    time_layers = []
+
+    # Handle DSM (backwards compatible)
+    if DSM:
+        print("load DSM: " + data_layers_path + "/DSM.pt")
+        DSM = multiband_To_Tensor(data_layers_path, "DSM")
+        static_layers.append(DSM)
+
+    # Load static layers flagged in data_layers
+    if "static" in data_layers:
+        for data_label in data_layers["static"]:
+            if data_label == "DSM":
+                continue 
+
+            if data_layers["static"][data_label]:
+                t = multiband_To_Tensor(data_layers_path, data_label)
+                print(f"load static {data_label} (layers: {t.shape[0]}): {data_layers_path}/{data_label}.pt")
+                static_layers.extend([t[i] for i in range(t.shape[0])]) # not necesary for load_RNN/load_CNN, but to standardize for write_pngs
+
+    # Load time layers flagged in data_layers
+    if "time" in data_layers:
+        for data_label in data_layers["time"]:
+            if data_layers["time"][data_label]:
+                time_layer = []
+
+                # Iterate through each year
+                # Recall years_ahead only pertains to labels
+                for year in range(start_year, end_year + 1):
+                    print("loading in temporal data layer from year:", year)
+                    image = torch.load(f"{wherepath}/{data_label}_{year}.pt")
+
+                    time_layer.append(image)
+                
+                print(f"load time {data_label} (layers: {time_layer[0].shape[0]}): {wherepath}/{data_label}.pt")
+                time_layers.append(time_layer)
+
+    if "write_static_pngs" in data_layers and data_layers["write_static_pngs"]:
+        raise NotImplementedError
+    if "write_time_pngs" in data_layers and data_layers["write_time_pngs"]:
+        raise NotImplementedError
+
+    print("Static data len:", len(static_layers))
+    print("Time data len:", len(time_layers))
+
     if type == "2D":
-        if DSM:
-            DSM = torch.load(wherepath + "/DSM.pt")
-            Data = load_CNNdata(
-                size=size,
-                start_year=start_year,
-                end_year=end_year,
-                path=wherepath,
-                add_static=[DSM],
-            )
-        else:
-            Data = load_CNNdata(
-                size=size,
-                start_year=start_year,
-                end_year=end_year,
-                path=wherepath,
-                add_static=None,
-            )
+        Data = load_CNNdata( # loading DSM from pt file
+            size=size,
+            start_year=start_year,
+            end_year=end_year,
+            path=wherepath,
+            add_static=static_layers,
+            add_time=time_layers, # time_layers if len(time_layers)>0 else None
+            years_ahead=years_ahead,
+        )
     else:
-        if DSM:
-            print("load: " + wherepath + "/DSM.pt")
-            DSM = torch.load(wherepath + "/DSM.pt")
-            Data = load_RNNdata(
-                size=size,
-                start_year=start_year,
-                end_year=end_year,
-                path=wherepath,
-                add_static=[DSM],
-            )
-        else:
-            print("loading data")
-            Data = load_RNNdata(
-                size=size,
-                start_year=start_year,
-                end_year=end_year,
-                path=wherepath,
-                add_static=None,
-            )
+        Data = load_RNNdata(
+            size=size,
+            start_year=start_year,
+            end_year=end_year,
+            path=wherepath,
+            add_static=static_layers,
+            add_time=time_layers,#time_layers if len(time_layers)>0 else None,
+            years_ahead=years_ahead,
+        )
 
     return Data
 
@@ -511,6 +581,7 @@ class DatasetCNNforecast(Dataset):
 def load_CNNdata_forecast(
     size, year, path="'/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors'"
 ):
+    # TODO
 
     path = path + "/"
     DSM = torch.load(path + "DSM.pt")
@@ -606,60 +677,76 @@ class DatasetRNN(Dataset):
     def __len__(self):
         return len(self.pixels)
 
+class LabeledConcatDataset(torch.utils.data.ConcatDataset):
+    def __init__(self, datasets):
+        super().__init__(datasets)
+        self._merged_labels = None  # Cache for the combined labels
+
+    @property
+    def labels(self):
+        # Lazily compute and cache the merged labels
+        if self._merged_labels is None:
+            merged_labels = []
+            for dataset in self.datasets:
+                if not hasattr(dataset, 'labels'):
+                    raise AttributeError(f"Dataset {type(dataset).__name__} does not have a 'labels' attribute.")
+                merged_labels.extend(dataset.labels)
+            self._merged_labels = torch.tensor(merged_labels, dtype=torch.bool)
+        return self._merged_labels
 
 # THIS FUNCTION IS INCOMPLETE - DO NOT USE
-def load_RNNdataHDF5(
-    size,
-    start_year,
-    end_year,
-    add_static=None,
-    add_time=None,
-    path="'/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors'",
-):
-    """
-    given start year, end year and size initilalize RNN data class BUT WITH HDF5
-    start year and end year define number of elements in the time series of images
-    size define the returned image size
-    path = path to saved tensors
-    To add extra static layers, than add_static must be a list of this tensors (2D or 3D for multi-channels)
-    To add extra time layers, than add_time must be a list of lists of this tensors (2D or 3D for multi-channels) where the
-    lists are sorted in time and are of lenght end_year - start_year + 1
-    """
-    path = path + "/"
-    images = []
-    for i, year in enumerate(range(start_year, end_year + 1)):
+# def load_RNNdataHDF5(
+#     size,
+#     start_year,
+#     end_year,
+#     add_static=None,
+#     add_time=None,
+#     path="'/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors'",
+# ):
+#     """
+#     given start year, end year and size initilalize RNN data class BUT WITH HDF5
+#     start year and end year define number of elements in the time series of images
+#     size define the returned image size
+#     path = path to saved tensors
+#     To add extra static layers, than add_static must be a list of this tensors (2D or 3D for multi-channels)
+#     To add extra time layers, than add_time must be a list of lists of this tensors (2D or 3D for multi-channels) where the
+#     lists are sorted in time and are of lenght end_year - start_year + 1
+#     """
+#     path = path + "/"
+#     images = []
+#     for i, year in enumerate(range(start_year, end_year + 1)):
 
-        image = torch.load(path + "tensor_%d.pt" % (year))
+#         image = torch.load(path + "tensor_%d.pt" % (year))
 
-        if add_time:
-            for to_add in add_time[i]:
-                if len(to_add.shape) == 2:
-                    to_add = to_add.unsqueeze(dim=0)
-                    image = torch.cat([image, to_add], dim=0)
-                else:
-                    image = torch.cat([image, to_add], dim=0)
+#         if add_time:
+#             for to_add in add_time[i]:
+#                 if len(to_add.shape) == 2:
+#                     to_add = to_add.unsqueeze(dim=0)
+#                     image = torch.cat([image, to_add], dim=0)
+#                 else:
+#                     image = torch.cat([image, to_add], dim=0)
 
-        image = image.unsqueeze(dim=1)
-        images.append(image)
+#         image = image.unsqueeze(dim=1)
+#         images.append(image)
 
-    images = torch.cat(images, dim=1)
+#     images = torch.cat(images, dim=1)
 
-    static = torch.load(path + "static.pt")
+#     static = torch.load(path + "static.pt")
 
-    if add_static:
-        for to_add in add_static:
-            if len(to_add.shape) == 2:
-                to_add = to_add.unsqueeze(dim=0)
-                static = torch.cat([static, to_add], dim=0)
-            else:
-                static = torch.cat([static, to_add], dim=0)
+#     if add_static:
+#         for to_add in add_static:
+#             if len(to_add.shape) == 2:
+#                 to_add = to_add.unsqueeze(dim=0)
+#                 static = torch.cat([static, to_add], dim=0)
+#             else:
+#                 static = torch.cat([static, to_add], dim=0)
 
-    pixels = torch.load(path + "pixels_cord_%d.pt" % (end_year))
-    labels = torch.load(path + "labels_%d.pt" % (end_year))
-    Data = DatasetRNN(
-        size=size, images=images, static=static, pixels=pixels, labels=labels
-    )
-    return Data
+#     pixels = torch.load(path + "pixels_cord_%d.pt" % (end_year))
+#     labels = torch.load(path + "labels_%d.pt" % (end_year))
+#     Data = DatasetRNN(
+#         size=size, images=images, static=static, pixels=pixels, labels=labels
+#     )
+#     return Data
 
 
 def load_RNNdata(
@@ -668,15 +755,18 @@ def load_RNNdata(
     end_year,
     add_static=None,
     add_time=None,
+    years_ahead=1,
     path="'/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors'",
 ):
     """
+    years_ahead: labels should encode deforestation in the following years_ahead years 
+        (ie 3 is any deforestation event in the next three years) TODO: documentation
     given start year, end year and size initilalize RNN data class
     start year and end year define number of elements in the time series of images
     size define the returned image size
     path = path to saved tensors
-    To add extra static layers, than add_static must be a list of this tensors (2D or 3D for multi-channels)
-    To add extra time layers, than add_time must be a list of lists of this tensors (2D or 3D for multi-channels) where the
+    To add extra static layers, then add_static must be a list of this tensors (2D or 3D for multi-channels)
+    To add extra time layers, then add_time must be a list of lists of this tensors (2D or 3D for multi-channels) where the
     lists are sorted in time and are of length end_year - start_year + 1
     """
     path = path + "/"
@@ -685,13 +775,22 @@ def load_RNNdata(
 
         image = torch.load(path + "tensor_%d.pt" % (year))
 
+
+        # BUG FROM Pat et al
+        # if add_time:
+        #     for to_add in add_time[i]:
+        #         if len(to_add.shape) == 2:
+        #             to_add = to_add.unsqueeze(dim=0)
+        #             image = torch.cat([image, to_add], dim=0)
+        #         else: 
+        #             image = torch.cat([image, to_add], dim=0)
+        
         if add_time:
-            for to_add in add_time[i]:
+            for time_data in add_time:
+                to_add = time_data[i]
                 if len(to_add.shape) == 2:
                     to_add = to_add.unsqueeze(dim=0)
-                    image = torch.cat([image, to_add], dim=0)
-                else:
-                    image = torch.cat([image, to_add], dim=0)
+                image = torch.cat([image, to_add], dim=0)
 
         image = image.unsqueeze(dim=1)
         images.append(image)
@@ -709,7 +808,12 @@ def load_RNNdata(
                 static = torch.cat([static, to_add], dim=0)
 
     pixels = torch.load(path + "pixels_cord_%d.pt" % (end_year))
-    labels = torch.load(path + "labels_%d.pt" % (end_year))
+
+    if years_ahead == 1:
+        labels = torch.load(path + f"labels_{year}.pt")
+    else: 
+        labels = torch.load(path + f"labels{years_ahead}_{year}.pt")    
+
     Data = DatasetRNN(
         size=size, images=images, static=static, pixels=pixels, labels=labels
     )
@@ -724,6 +828,7 @@ def load_RNNdata_forecast(
     add_time=None,
     path="/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors",
 ):
+    # TODO
     """
     given start year, end year and size initilalize RNN data class
     start year and end year define number of elements in the time series of images
@@ -833,6 +938,7 @@ def load_RNNdata_forecast2(
 '''
 
 if __name__ == "__main__":
+    # TODO
 
     import time
 

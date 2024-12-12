@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from spp_layer import *
+from models.spp_layer import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
