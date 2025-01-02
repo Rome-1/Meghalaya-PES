@@ -147,6 +147,7 @@ def forecasting(
     recon_loss_weight=RECON_LOSS_WEIGHT,
     reconstruction_criterion=RECON_CRITERION,
 ):  
+    print("\nForecasting Routine Commenced\n")
     path = path + "/outputs"
 
     predict_loader = DataLoader(
@@ -325,7 +326,7 @@ def heatmap(
     print("\nHeatmap:", flush=True)
 
 
-    datamask = to_Tensor(sourcepath, "datamask_20%d.tif" % (msk_yr))
+    datamask = to_Tensor(sourcepath, "/datamask_20%d.tif" % max(end_year, 23))
     print("Loading pixels...", flush=True)
     valid_pixels = torch.load(wherepath + "/pixels_cord_%d.pt" % min(end_year, 23))
     print("Loaded pixels. Setting up datamask..", flush=True)
@@ -363,9 +364,18 @@ def heatmap(
     fig.savefig(savepath + "/" +  name + f"_heatmap_20{output_year:d}.png")
     print("PNG heatmap saved at: ", savepath + "/" + name + f"_heatmap_20{output_year:d}.png")
 
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+    ax.matshow(
+        heatmap, cmap=matplotlib.cm.Spectral_r, interpolation="none", vmin=0, vmax=1
+    )
+    fig.show()
+    fig.savefig(savepath + "/" +  name + f"_heatmap_20{output_year:d}_small.png")
+    print("PNG heatmap saved at: ", savepath + "/" + name + f"_heatmap_20{output_year:d}_small.png")
+
     print("Saving to tif...", flush=True)
     heatmap[heatmap == None] = np.nan
-    with rio.open(sourcepath + "datamask_20%d.tif" % (msk_yr)) as src:
+    with rio.open(sourcepath + "/datamask_20%d.tif" % max(23, msk_yr)) as src:
         ras_data = src.read()
         ras_meta = src.profile
         

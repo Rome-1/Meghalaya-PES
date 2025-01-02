@@ -4,7 +4,7 @@ from data_loading.load_nightlight_data import download_nightlight_data
 from data_loading.Download_functions import download_data, import_boundary
 from data_loading.prepare_data import prepare_data
 from data_loading.to_tensors import to_tensors
-# from data_loading.ee_boundary import download_boundary
+from data_loading.ee_boundary import download_boundary
 from data_loading.dsm import DSM_to_tensor
 
 USER = os.environ.get('USER')
@@ -42,7 +42,7 @@ if nightlight_configured:
 
 
 # Import boundary data (requires Google Earth Engine Config)
-download_boundary(dir, region_upper) # cannot be run with sbatch as it requires user input
+download_boundary(dir, region.upper()) # cannot be run with sbatch as it requires user input
 
 boundPathTight = dir + "/data/" + old_region + "/boundary/boundary.shp"
 buffsize = 0.09 # this is the original buffer set by Ball et al.
@@ -63,7 +63,7 @@ to_tensors(years=years,
     region=region,
     sourcepath=outPath,
     wherepath=outPath + "/tensors",
-    nightlight_metrics=nightlight_metric if nightlight_configured else None # TODO median will be parameter
+    nightlight_metrics=nightlight_metric if nightlight_configured else None
 )
 
 # DSM_to_tensor(dwnldpath=dwnldPath, file_name="Meghalaya_DEM", wherepath=outPath, outpath=outPath + "/tensors", boundaryPath=boundaryPath)

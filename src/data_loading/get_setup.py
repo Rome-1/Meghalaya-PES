@@ -1,5 +1,6 @@
 import os
 import json, yaml
+from models.utils import get_model_type
 import torch
 import numpy as np
 import random
@@ -196,3 +197,23 @@ def get_arguments(DEFAULT_CONFIG, WANDB_PROJECT_ID, TEST_EPOCHS):
         TEST_EPOCHS = args.test_epochs
 
     return args, init_bestmodelpath, config, TEST_EPOCHS
+
+def get_forecast_arguments():
+
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument('--config', type=str, nargs=1, help='Path to the configuration file', required=True)
+    parser.add_argument('--config_object', type=str, nargs=1, help='Object within the Python filepath specified in --config', required=True)
+    parser.add_argument('--modelpath', type=str, nargs=1, help='Use preexisting model', required=True)
+    args = parser.parse_args()
+
+    # Map [arg] -> arg
+    for arg_name in ["config", "config_object", "modelpath"]:
+        value = getattr(args, arg_name, None)
+        if isinstance(value, list) and len(value) == 1:
+            setattr(args, arg_name, value[0])
+
+    config = load_config(args.config, args.config_object)
+    if config["end_year"] + 1 is not config["forecast_year"]:
+        raise Exception("Forecast year should immediately follow data.")
+    
+    return args, config, args.modelpath

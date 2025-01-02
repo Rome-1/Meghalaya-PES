@@ -105,3 +105,32 @@ hyperparameter_debug_3D["data_layers"] = {
     "static": {
     }
 }
+
+
+# forecast_config_template = dict(
+#     region="meghalaya_only",
+#     modeltype="3D",
+#     start_year = 19,
+#     end_year = 23,
+#     forecast_year = 24,
+
+#     size = ,
+#     hidden_dim1 = ,
+#     hidden_dim2 = ,
+#     hidden_dim3 = ,
+#     kernel_size = [
+#        [3, 3], 
+#        [2, 3, 3], 
+#        [3, 3], 
+#        [2, 3, 3]
+#     ],
+#     levels = [],
+#     dropout = ,
+#     batch_size = ,
+
+#     start_batch = 0,
+#     stop_batch = ,
+#     print_batch = ,
+#     save_batch = ,
+#     data_layers= ,
+# )
