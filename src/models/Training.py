@@ -254,7 +254,8 @@ def train_model(
             model_output = model.forward(data, sigmoid=not require_sigmoid)
             output, loss, _, _ = parse_model_forward(model_output, target, data, criterion, reconstruction_criterion, recon_loss_weight)
 
-            wandb.log({"bat_val_loss": loss.cpu().item()})
+            if wandb.run is not None:
+                wandb.log({"bat_val_loss": loss.cpu().item()})
             valid_losses.append(loss.cpu().item())
             val_outputs.append(list(output.cpu().data))
             val_targets.append(list(target.cpu().data))
@@ -289,17 +290,18 @@ def train_model(
         costs_val.append(cost_val)
         AUCs_train.append(auc_t)
         AUCs_val.append(auc_v)
-        wandb.log(
-            {
-                "train_loss": train_loss,
-                "validation_loss": valid_loss,
-                "train_cost": cost_train,
-                "validation_cost": cost_val,
-                "train_AUC": auc_t,
-                "validation_AUC": auc_v,
-                "epoch": epoch,
-            }
-        )
+        if wandb.run:
+            wandb.log(
+                {
+                    "train_loss": train_loss,
+                    "validation_loss": valid_loss,
+                    "train_cost": cost_train,
+                    "validation_cost": cost_val,
+                    "train_AUC": auc_t,
+                    "validation_AUC": auc_v,
+                    "epoch": epoch,
+                }
+            )
         # clear lists to track next epoch
         train_losses = []
         train_targets = []
@@ -603,22 +605,22 @@ def map_tfpn_by_pixel(threshold_scalar, targets, outputs, coordinates, threshold
 
     # FOR DEBUGGING
     # # Define the file path where you want to save the inputs
-    inputs_dump_path = './inputs_dump_last.pkl'
-    inputs = {
-        'threshold_scalar': threshold_scalar,
-        'targets': targets,
-        'outputs': outputs,
-        'coordinates': coordinates,
-        'threshold': threshold,
-        'label': label,
-        'valid_pixels_path': valid_pixels_path,
-        'savepath': savepath,
-        'datamask_path': datamask_path,
-        'modelname': modelname
-    }
-    with open(inputs_dump_path, 'wb') as f:
-        pickle.dump(inputs, f)
-    print(f"Inputs have been dumped to {inputs_dump_path}")
+    # inputs_dump_path = './inputs_dump_last.pkl'
+    # inputs = {
+    #     'threshold_scalar': threshold_scalar,
+    #     'targets': targets,
+    #     'outputs': outputs,
+    #     'coordinates': coordinates,
+    #     'threshold': threshold,
+    #     'label': label,
+    #     'valid_pixels_path': valid_pixels_path,
+    #     'savepath': savepath,
+    #     'datamask_path': datamask_path,
+    #     'modelname': modelname
+    # }
+    # with open(inputs_dump_path, 'wb') as f:
+    #     pickle.dump(inputs, f)
+    # print(f"Inputs have been dumped to {inputs_dump_path}")
 
     binary_outputs = (outputs > threshold) * 1
     map_tp_tn_fp_fn = np.zeros_like(targets) + 0.1

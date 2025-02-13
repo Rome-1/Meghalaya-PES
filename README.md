@@ -26,6 +26,8 @@ See `src/requirements/environment.yml` for the complete list.
 
 First, create the directories and download the appropriate data. See [https://github.com/PatBall1/DeepForestcast/tree/master](https://github.com/PatBall1/DeepForestcast/tree/master) for details. Also see the `Makefile` in the root, `src/bash_scripts/run_data_load.sh`, and `src/main_data_load.py`. 
 
+Then, update the `.env` file. See `src/.env.example`. Depending on your use-case, not all are required. 
+
 Next, build a config in `src/configs.py`, then call `python3 src/models.py`. It can take the parameters below. If preferred, use the bash scripts `src/bash_scripts/`.
 
 `--debug`:
@@ -35,7 +37,7 @@ Enables debugging mode by overriding model settings for a simpler and faster con
 Disables Weights & Biases logging for the run.
 
 `--test_only`:
-Skips training and runs only testing. Requires a pretrained model specified via --init_model.
+Skips training and runs only testing. Requires a pretrained model specified via `--init_model`.
 
 `--wandb_project`:
 Specifies a custom W&B project for logging.

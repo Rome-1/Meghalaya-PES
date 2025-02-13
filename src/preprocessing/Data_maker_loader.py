@@ -467,7 +467,7 @@ def load_CNNdata(
     return Data
 
 # Regulate later if new layers are added in add_static or add_time
-def with_DSM(size, start_year, end_year, wherepath, data_layers={}, years_ahead=1, type="3D", DSM=False):
+def with_DSM(size, start_year, end_year, wherepath, data_layers={}, years_ahead=1, type="3D", DSM=False, forecasting=False):
     """
     TODO documentation
     TODO clean up filepaths
@@ -533,6 +533,7 @@ def with_DSM(size, start_year, end_year, wherepath, data_layers={}, years_ahead=
             add_static=static_layers,
             add_time=time_layers, # time_layers if len(time_layers)>0 else None
             years_ahead=years_ahead,
+            forecasting=forecasting,
         )
     else:
         Data = load_RNNdata(
@@ -543,6 +544,7 @@ def with_DSM(size, start_year, end_year, wherepath, data_layers={}, years_ahead=
             add_static=static_layers,
             add_time=time_layers,#time_layers if len(time_layers)>0 else None,
             years_ahead=years_ahead,
+            forecasting=forecasting,
         )
 
     return Data
@@ -757,6 +759,7 @@ def load_RNNdata(
     add_time=None,
     years_ahead=1,
     path="'/rdsgpfs/general/user/kpp15/home/Hansen/data/raster/tensors'",
+    forecasting=False,
 ):
     """
     years_ahead: labels should encode deforestation in the following years_ahead years 
@@ -809,10 +812,14 @@ def load_RNNdata(
 
     pixels = torch.load(path + "pixels_cord_%d.pt" % (end_year))
 
-    if years_ahead == 1:
-        labels = torch.load(path + f"labels_{year}.pt")
-    else: 
-        labels = torch.load(path + f"labels{years_ahead}_{year}.pt")    
+    if not forecasting:
+        if years_ahead == 1:
+            labels = torch.load(path + f"labels_{year}.pt")
+        else: 
+            labels = torch.load(path + f"labels{years_ahead}_{year}.pt")  
+    else:
+          # zeros pixels for forecasting with most recent data (too new for labels)
+          labels = torch.zeros(pixels.shape[0])
 
     Data = DatasetRNN(
         size=size, images=images, static=static, pixels=pixels, labels=labels

@@ -44,6 +44,7 @@ Data = with_DSM(
     wherepath=wherepath,
     data_layers=config["data_layers"],
     years_ahead=1,
+    forecasting=True,
 )
 
 use_cuda = torch.cuda.is_available()
@@ -53,6 +54,7 @@ if use_cuda:
     print("Device accessed:", torch.cuda.get_device_name(0))
     print("Number of devices:", torch.cuda.device_count())
 model = model.to(device)
+model.eval()
 
 # Verify DataParallel is being used
 if isinstance(model, torch.nn.DataParallel):

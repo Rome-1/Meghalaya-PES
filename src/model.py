@@ -7,6 +7,7 @@ from configs import hyperparameter_defaults_3D, hyperparameter_defaults_2D, wand
 import time 
 import math
 import pprint
+import os
 
 fix_randomness()
 

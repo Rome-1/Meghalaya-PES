@@ -945,6 +945,226 @@ class Conv_3DoddT(torch.nn.Module):
 
 
 
+class Conv_3DoddOnly(torch.nn.Module):
+    def __init__(
+        self,
+        input_dim=(2, 8),
+        hidden_dim=(16, 32, 32),
+        kernel_size=((5, 5), (2, 5, 5), (5, 5)),
+        levels=(13,),
+        dropout=0.2,
+    ):
+        super(Conv_3Dodd, self).__init__()
+
+        self.levels = levels
+        self.hidden_dim = hidden_dim
+
+        self.conv_2D = torch.nn.Sequential(
+            torch.nn.Conv2d(input_dim[0], hidden_dim[0], kernel_size=kernel_size[0], 
+                            # padding=(1,1) # used to preserve size (W,H), else drops by 4 (must match conv3D below, or use adaptivePool2D)
+                            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[0]),
+            torch.nn.Conv2d(hidden_dim[0], hidden_dim[0], kernel_size=kernel_size[0]
+                            #, padding=(1,1)
+                            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[0]),
+        )
+
+        self.conv_3D = torch.nn.Sequential(
+            torch.nn.Conv3d(
+                in_channels=input_dim[1],
+                out_channels=hidden_dim[1],
+                kernel_size=kernel_size[1],
+                # padding=(0,1,1), # including preserves (W,H), else drops by 2, but conv2D does as well; for kernel of size 3 (5 will drop 2)
+            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm3d(hidden_dim[1]),
+            torch.nn.Conv3d(
+                in_channels=hidden_dim[1],
+                out_channels=hidden_dim[1],
+                # DEPENDING ON NUMBER OF YEARS, NEED TO SWITCH BETWEEN KERNEL SIZE #
+                # This one for odd num of years#
+                # kernel_size=kernel_size[1],
+                # This one for even num of years#
+                kernel_size=(
+                    kernel_size[3][0],# + 2, # Plus number of years from 4??? TODO # boosted by one for even number of years
+                    kernel_size[3][1],
+                    kernel_size[3][2],
+                ),
+                # padding=(0,1,1), # including preserves (W,H), else drops by 2, but conv2D does as well; for kernel of size 3 (5 will drop 2)
+                # ),
+            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm3d(hidden_dim[1]),
+        )
+
+        self.pool3d = nn.AdaptiveAvgPool3d((1, None, None))
+
+        self.final = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                hidden_dim[0] + hidden_dim[1], hidden_dim[2], kernel_size[2]
+            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+        )
+
+        ln_in = 0
+        for i in levels:
+            ln_in += hidden_dim[2] * i * i
+
+        self.ln = torch.nn.Sequential(
+            torch.nn.Linear(ln_in, 100),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(100),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(100, 1),
+        )
+
+        self.sig = torch.nn.Sigmoid()
+
+    def forward(self, data, sigmoid=True):
+
+        z, x = data
+        z = self.conv_2D.forward(z)
+        x = self.conv_3D.forward(x)
+        x = self.pool3d(x)
+        x = x.squeeze(dim=2)
+        x = torch.cat((x, z), dim=1)
+        x = self.final.forward(x)
+        x = spp_layer(x, self.levels)
+        x = self.ln(x)
+        if sigmoid:
+            x = self.sig(x)
+
+        return x.flatten()
+
+class Conv_3DevenOnly(torch.nn.Module):
+    def __init__(
+        self,
+        input_dim=(2, 8),
+        hidden_dim=(16, 32, 32),
+        kernel_size=((5, 5), (2, 5, 5), (5, 5)),
+        levels=(13,),
+        dropout=0.2,
+    ):
+        super(Conv_3Dodd, self).__init__()
+
+        self.levels = levels
+        self.hidden_dim = hidden_dim
+
+        self.conv_2D = torch.nn.Sequential(
+            torch.nn.Conv2d(input_dim[0], hidden_dim[0], kernel_size=kernel_size[0], 
+                            # padding=(1,1) # used to preserve size (W,H), else drops by 4 (must match conv3D below, or use adaptivePool2D)
+                            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[0]),
+            torch.nn.Conv2d(hidden_dim[0], hidden_dim[0], kernel_size=kernel_size[0]
+                            #, padding=(1,1)
+                            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[0]),
+        )
+
+        self.conv_3D = torch.nn.Sequential(
+            torch.nn.Conv3d(
+                in_channels=input_dim[1],
+                out_channels=hidden_dim[1],
+                kernel_size=kernel_size[1],
+                # padding=(0,1,1), # including preserves (W,H), else drops by 2, but conv2D does as well; for kernel of size 3 (5 will drop 2)
+            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm3d(hidden_dim[1]),
+            torch.nn.Conv3d(
+                in_channels=hidden_dim[1],
+                out_channels=hidden_dim[1],
+                # DEPENDING ON NUMBER OF YEARS, NEED TO SWITCH BETWEEN KERNEL SIZE #
+                # This one for odd num of years
+                # kernel_size=kernel_size[1],
+                # This one for even num of years
+                kernel_size=(
+                    kernel_size[3][0],# + 2, # Plus number of years from 4??? TODO # boosted by one for even number of years
+                    kernel_size[3][1],
+                    kernel_size[3][2],
+                ),
+                # padding=(0,1,1), # including preserves (W,H), else drops by 2, but conv2D does as well; for kernel of size 3 (5 will drop 2)
+                # ),
+            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm3d(hidden_dim[1]),
+        )
+
+        self.pool3d = nn.AdaptiveAvgPool3d((1, None, None))
+
+        self.final = torch.nn.Sequential(
+            torch.nn.Conv2d(
+                hidden_dim[0] + hidden_dim[1], hidden_dim[2], kernel_size[2]
+            ),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+            torch.nn.Conv2d(hidden_dim[2], hidden_dim[2], kernel_size[2]),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm2d(hidden_dim[2]),
+        )
+
+        ln_in = 0
+        for i in levels:
+            ln_in += hidden_dim[2] * i * i
+
+        self.ln = torch.nn.Sequential(
+            torch.nn.Linear(ln_in, 100),
+            torch.nn.ReLU(),
+            torch.nn.BatchNorm1d(100),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(100, 1),
+        )
+
+        self.sig = torch.nn.Sigmoid()
+
+    def forward(self, data, sigmoid=True):
+
+        z, x = data
+        z = self.conv_2D.forward(z)
+        x = self.conv_3D.forward(x)
+        x = self.pool3d(x)  # Reduce depth dimension to 1
+        x = x.squeeze(dim=2)
+        x = torch.cat((x, z), dim=1)
+        x = self.final.forward(x)
+        x = spp_layer(x, self.levels)
+        x = self.ln(x)
+        if sigmoid:
+            x = self.sig(x)
+
+        return x.flatten()
+
 
 
 class Autoencoder2D(nn.Module):

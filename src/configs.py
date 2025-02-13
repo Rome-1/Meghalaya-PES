@@ -106,6 +106,319 @@ hyperparameter_debug_3D["data_layers"] = {
     }
 }
 
+# 1 years ahead (3YA) model training and forecasting configs
+# Stage 1: train and test using all available data
+# Stage 2: train further on testing data
+# Stage 3: Forecast for 2024
+config_1YA_stage_1 = dict(
+    region="meghalaya_only",
+    modeltype="3D",
+    kernel_size=[
+        [3, 3],
+        [2, 3, 3],
+        [3, 3],
+        [2, 3, 3]
+    ],
+    size=34,
+    dropout=0.3,
+    levels=[14],
+    batch_size=2048,
+    hidden_dim1=64,
+    hidden_dim2=128,
+    hidden_dim3=16,
+    lr=0.0014530946817692654,
+    weight_decay=0,
+    n_splits=5,
+    AUC=True,
+    BCE_Wloss=False,
+    FNcond=False,
+    n_epochs=3,
+    patience=3,
+    training_time=21,
+    pos_weight=2,
+    train_times=4,
+    test_times=4,
+    w=10,
+    stop_batch=None,
+    print_batch=10000,
+    start_year=15,
+    end_year=20,
+    years_ahead=1,
+    data_layers=dict(
+        static=dict(
+            community_reserves_cropped=True,
+            protected_areas_cropped=True,
+            sacred_groves_cropped=True,
+            slope_reproj_cr=True,
+            meghalaya_DEM_reproj_cr=True,
+            updated_block_boundaries_reproj_one_hot=True,
+            updated_roads_reproj_one_hot=True,
+            village_points_cropped=True
+        ),
+        time=dict(
+            nightlight_median=True,
+            nightlight_maximum=True
+        )
+    ),
+    train_years=3
+)
+
+config_1YA_stage_2 = dict(
+    region="meghalaya_only",
+    modeltype="3D",
+    kernel_size=[
+        [3, 3],
+        [2, 3, 3],
+        [3, 3],
+        [2, 3, 3]
+    ],
+    size=34,
+    dropout=0.3,
+    levels=[14],
+    batch_size=512,
+    hidden_dim1=64,
+    hidden_dim2=128,
+    hidden_dim3=16,
+    lr=0.0014530946817692654,
+    weight_decay=0,
+    n_splits=5,
+    AUC=True,
+    BCE_Wloss=False,
+    FNcond=False,
+    n_epochs=1,
+    patience=3,
+    training_time=21,
+    pos_weight=2,
+    train_times=4,
+    test_times=4,
+    w=10,
+    stop_batch=None,
+    print_batch=10000,
+    start_year=18,
+    end_year=23,
+    years_ahead=1,
+    data_layers=dict(
+        static=dict(
+            community_reserves_cropped=True,
+            protected_areas_cropped=True,
+            sacred_groves_cropped=True,
+            slope_reproj_cr=True,
+            meghalaya_DEM_reproj_cr=True,
+            updated_block_boundaries_reproj_one_hot=True,
+            updated_roads_reproj_one_hot=True,
+            village_points_cropped=True
+        ),
+        time=dict(
+            nightlight_median=True,
+            nightlight_maximum=True
+        )
+    ),
+    train_years=1
+)
+
+forecast_config_1YA_stage_3 = dict(
+    region="meghalaya_only",
+    modeltype="3D",
+
+    # Year settings
+    start_year=20,
+    end_year=23,
+    forecast_year=24,
+
+    # Model parameters
+    size=34,
+    hidden_dim1=64,
+    hidden_dim2=128,
+    hidden_dim3=16,
+    kernel_size=[
+        [3, 3], 
+        [2, 3, 3], 
+        [3, 3], 
+        [2, 3, 3]
+    ],
+    levels=[14],
+    dropout=0.3,
+    batch_size=512,
+
+    # Batch processing parameters
+    start_batch=0,
+    stop_batch=None,
+    print_batch=500,
+    save_batch=None,
+
+    # Data Layers for forecasting
+    data_layers=dict(
+        static=dict(
+            community_reserves_cropped=True,
+            protected_areas_cropped=True,
+            sacred_groves_cropped=True,
+            slope_reproj_cr=True,
+            meghalaya_DEM_reproj_cr=True,
+            updated_block_boundaries_reproj_one_hot=True,
+            updated_roads_reproj_one_hot=True,
+            village_points_cropped=True
+        ),
+        time=dict(
+            nightlight_median=True,
+            nightlight_maximum=True
+        )
+    )
+)
+
+# 3 years ahead (3YA) model training and forecasting configs
+# Stage 1: train and test using all available data
+# Stage 2: train further on testing data
+# Stage 3: Forecast for 2024
+config_3YA_stage_1 = dict(
+    region="meghalaya_only",
+    modeltype="3D",
+    kernel_size=[
+        [3, 3],
+        [2, 3, 3],
+        [3, 3],
+        [2, 3, 3]
+    ],
+    size=29,
+    dropout=0.38651690390146254,
+    levels=[6],
+    batch_size=64,
+    hidden_dim1=256,
+    hidden_dim2=128,
+    hidden_dim3=16,
+    lr=7.635892111063769e-05,
+    weight_decay=0,
+    n_splits=5,
+    AUC=True,
+    BCE_Wloss=False,
+    FNcond=False,
+    n_epochs=1,
+    patience=3,
+    training_time=21,
+    pos_weight=5,
+    train_times=4,
+    test_times=4,
+    w=10,
+    stop_batch=None,
+    print_batch=10000,
+    start_year=16,
+    end_year=19,
+    years_ahead=3,
+    data_layers=dict(
+        static=dict(
+            community_reserves_cropped=True,
+            protected_areas_cropped=True,
+            sacred_groves_cropped=True,
+            slope_reproj_cr=True,
+            meghalaya_DEM_reproj_cr=True,
+            updated_block_boundaries_reproj_one_hot=True,
+            updated_roads_reproj_one_hot=True,
+            village_points_cropped=True
+        ),
+        time=dict(
+            nightlight_median=True,
+            nightlight_maximum=True
+        )
+    ),
+    train_years=3
+)
+
+config_3YA_stage_2 = dict(
+    region="meghalaya_only",
+    modeltype="3D",
+    kernel_size=[
+        [3, 3],
+        [2, 3, 3],
+        [3, 3],
+        [2, 3, 3]
+    ],
+    size=29,
+    dropout=0.38651690390146254,
+    levels=[6],
+    batch_size=64,
+    hidden_dim1=256,
+    hidden_dim2=128,
+    hidden_dim3=16,
+    lr=7.635892111063769e-05,
+    weight_decay=0,
+    n_splits=5,
+    AUC=True,
+    BCE_Wloss=False,
+    FNcond=False,
+    n_epochs=1,
+    patience=3,
+    training_time=21,
+    pos_weight=5,
+    train_times=4,
+    test_times=4,
+    w=10,
+    stop_batch=None,
+    print_batch=10000,
+    start_year=18,
+    end_year=21,
+    years_ahead=3,
+    data_layers=dict(
+        static=dict(
+            community_reserves_cropped=True,
+            protected_areas_cropped=True,
+            sacred_groves_cropped=True,
+            slope_reproj_cr=True,
+            meghalaya_DEM_reproj_cr=True,
+            updated_block_boundaries_reproj_one_hot=True,
+            updated_roads_reproj_one_hot=True,
+            village_points_cropped=True
+        ),
+        time=dict(
+            nightlight_median=True,
+            nightlight_maximum=True
+        )
+    ),
+    train_years=1
+)
+
+forecast_config_3YA_stage_3 = dict(
+    region="meghalaya_only",
+    modeltype="3D",
+    start_year = 20,
+    end_year = 23,
+    forecast_year = 24,
+
+    size = 29,
+    hidden_dim1=256,
+    hidden_dim2=128,
+    hidden_dim3=16,
+    kernel_size = [
+        [3, 3], 
+        [2, 3, 3], 
+        [3, 3], 
+        [2, 3, 3]
+    ],
+    levels = [6],
+    dropout = 0.38651690390146254,
+    batch_size = 512, # 64
+
+    start_batch=0,
+    stop_batch=None,
+    print_batch=500, # 10000
+    save_batch=None,
+
+    data_layers=dict(
+        static=dict(
+            community_reserves_cropped=True,
+            meghalaya_DEM_reproj_cr=True,
+            protected_areas_cropped=True,
+            sacred_groves_cropped=True,
+            slope_reproj_cr=True,
+            updated_block_boundaries_reproj_one_hot=True,
+            updated_roads_reproj_one_hot=True,
+            village_points_cropped=True
+        ),
+        time=dict(
+            nightlight_maximum=True,
+            nightlight_median=True
+        )
+    )
+)
+
 
 # forecast_config_template = dict(
 #     region="meghalaya_only",
