@@ -6,7 +6,7 @@ PROJECT = "sweep"
 SWEEP_CONFIG = "mkezw377"
 
 def main():
-    subprocess.run(["python3", "-m", "anything_model", "--wandb_project", PROJECT], cwd="DeepForestcast/src", check=False)
+    subprocess.run(["python3", "-m", "model", "--wandb_project", PROJECT], cwd="DeepForestcast/src", check=False)
 
 if __name__ == "__main__":
     
